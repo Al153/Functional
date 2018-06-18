@@ -1,4 +1,6 @@
 package monads.typeclasses
+import Bind._
+import Lift._
 
 import scala.language.higherKinds
 
@@ -8,11 +10,22 @@ import scala.language.higherKinds
 trait Monad[M[_]] extends Bind[M] with Functor[M]
 
 object Monad {
-  implicit class BindOps[M[_], A](ma: M[A])(implicit M: Bind[M]) {
-    def flatMap[B](f: A => M[B]): M[B] = M.bind(ma, f)
-  }
+  def whileM[M[_]](mb: M[Boolean])(mc: M[Unit])(implicit MM: Monad[M]): M[Unit] =
+    for {
+      b <- mb
+      _ <- if (b) MM.bind[Unit, Unit](mc, _ => whileM(mb)(mc)) else MM.unit(())
+    } yield ()
 
-  implicit class FunctorOps[M[_], A](ma: M[A])(implicit M: Functor[M]) {
-    def map[B](f: A => B): M[B] = M.lift(ma, f)
+  def sequenceM[M[_], A](in: List[M[A]])(implicit MM: Monad[M]): M[List[A]] =
+    in.foldRight[M[List[A]]](MM.unit(Nil)){
+      case (mx, mxs) =>
+        for {
+          x <- mx
+          xs <- mxs
+        } yield x :: xs
+    }
+
+  implicit class MonadOps[M[_], A](ma: M[A])(implicit MM: Monad[M]){
+    def andThen[B](b: => B): M[B] = ma.flatMap(_ => MM.unit(b))
   }
 }

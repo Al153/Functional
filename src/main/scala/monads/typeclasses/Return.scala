@@ -8,3 +8,4 @@ import scala.language.higherKinds
 trait Return[M[_]]{
   def unit[A](a: => A): M[A]
 }
+
